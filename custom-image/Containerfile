@@ -1,0 +1,41 @@
+# python:3.12-slim is Debian-based (glibc) — works great on arm64 and avoids
+# musl/Alpine compatibility issues with Python packages that have C extensions
+# Build with: "podman build --platform linux/arm64 -t nac-demo ."
+#
+FROM python:3.12-slim
+
+# 1. Install uv by copying the binary from the official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Terraform version — update as needed
+ARG TERRAFORM_VERSION=1.12.2
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    jq \
+    unzip \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install Terraform for arm64
+RUN curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_arm64.zip" && \
+    unzip "terraform_${TERRAFORM_VERSION}_linux_arm64.zip" -d /usr/local/bin && \
+    rm "terraform_${TERRAFORM_VERSION}_linux_arm64.zip" && \
+    chmod +x /usr/local/bin/terraform
+
+# 2. Install Python tools using uv
+# We use --system because we are inside a container and want the tools
+# available globally in the image.
+RUN uv pip install --system \
+    boto3 \
+    requests \
+    pyyaml \
+    jinja2 \
+    python-dotenv \
+    hvac \
+    nac-validate
+
+# Verify tools are available
+RUN terraform --version && python --version && uv --version

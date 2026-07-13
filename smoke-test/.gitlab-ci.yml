@@ -1,0 +1,12 @@
+stages:
+  - test
+
+smoke-test:
+  stage: test
+  script:
+    - echo "GitLab Runner is working"
+    - uname -a
+    - hostname
+    - git --version
+    - python --version
+    - terraform version

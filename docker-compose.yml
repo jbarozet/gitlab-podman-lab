@@ -1,0 +1,44 @@
+networks:
+  gitlabnet:
+    driver: bridge
+    name: gitlabnet  # ← forces the name, no prefix (otherwise it would be gitlab-local_gitlabnet)
+
+services:
+  gitlab:
+    image: yrzr/gitlab-ce-arm64v8:latest
+    container_name: gitlab
+    restart: unless-stopped
+    hostname: gitlab
+    networks:
+      - gitlabnet
+    ports:
+      - "8088:80"
+      - '5005:5005'
+      - "8443:443"
+      - "2222:22"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8088/'
+        nginx['listen_port'] = 80
+        nginx['listen_addresses'] = ['*', '[::]']
+        # --- Add these lines to enable the container registry ---
+        gitlab_rails['registry_enabled'] = true
+        registry_external_url 'http://localhost:5005'
+    volumes:
+      - ./data/gitlab/config:/etc/gitlab:Z
+      - ./data/gitlab/logs:/var/log/gitlab:Z
+      - ./data/gitlab/data:/var/opt/gitlab:Z
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner
+    restart: unless-stopped
+    networks:
+      - gitlabnet
+    security_opt:
+      - label=disable
+    volumes:
+      - /run/podman/podman.sock:/var/run/docker.sock
+      - ./data/gitlab-runner/config:/etc/gitlab-runner:Z
+    # depends_on:
+    #   - gitlab
