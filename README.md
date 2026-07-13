@@ -1,6 +1,6 @@
-# GitLab Network as Code Demo
+# GitLab Podman Lab
 
-Run a self-hosted GitLab server and GitLab Runner locally with Podman. The lab is designed for Network as Code (NaC) demonstrations on Apple Silicon Macs.
+Run a self-hosted GitLab server and GitLab Runner locally with Podman. The lab is optimized for Apple Silicon Macs and can be used for general CI/CD testing or Network as Code (NaC) demonstrations.
 
 > [!WARNING]
 > This repository is for local demonstrations only. It is not regularly patched or security-scanned. Do not expose it to untrusted networks or use it in production without a security review.

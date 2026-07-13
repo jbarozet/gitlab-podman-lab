@@ -1,38 +1,115 @@
-# Podman Setup Guide
+# Podman and Podman Compose Guide
 
-This guide prepares Podman for the GitLab lab. It focuses on Apple Silicon macOS, while noting the main differences for Linux and Windows.
+This reusable guide covers installing Podman, configuring Podman Machine, running Compose projects, and optional Docker-compatible socket access.
 
-## Install Podman
+## Contents
 
-Use the official installer from the [Podman installation page](https://podman.io/docs/installation). The `.pkg` installer is recommended on macOS; the Homebrew package is community-maintained and may ship mismatched helper versions.
+- [Overview](#overview)
+- [Requirements](#requirements)
+- [Install Podman](#install-podman)
+- [How `podman compose` works](#how-podman-compose-works)
+- [Configure Podman Machine](#configure-podman-machine)
+- [Run a Compose project](#run-a-compose-project)
+- [Useful commands](#useful-commands)
+- [Update a Compose project](#update-a-compose-project)
+- [Docker-compatible socket reference](#docker-compatible-socket-reference)
 
-Verify the CLI:
+## Overview
+
+[Podman](https://podman.io/) is a daemonless container engine with a Docker-compatible command-line experience. Podman runs containers directly on Linux. On macOS and Windows, it runs Linux containers in a lightweight virtual machine managed by `podman machine`.
+
+## Requirements
+
+- A host with Internet access.
+- A recent Podman release.
+- A Compose provider such as `podman-compose`.
+
+Check the installation with:
 
 ```console
 podman --version
-```
-
-Podman runs Linux containers in a virtual machine on macOS and Windows. Linux hosts normally run Podman directly and can skip the `podman machine` commands.
-
-## Install a Compose provider
-
-`podman compose` is a wrapper around an external provider such as `podman-compose` or `docker-compose`. Install one provider before using this repository.
-
-With `uv`:
-
-```console
-uv tool install podman-compose
-```
-
-Alternatively, Podman Desktop can install Compose support from **Settings > Docker Compatibility**.
-
-Verify the provider:
-
-```console
 podman compose version
 ```
 
-If multiple providers are installed, select one explicitly when needed:
+## Install Podman
+
+Follow the [official Podman installation guide](https://podman.io/docs/installation) for current platform-specific instructions.
+
+### macOS
+
+Use the official Podman installer rather than Homebrew. Podman's installation guide recommends against Homebrew because it does not guarantee matched versions of Podman and its helper binaries (`krunkit`, `gvproxy`, and `vfkit`).
+
+1. Download the CLI installer from the [Podman releases page](https://github.com/containers/podman/releases/latest). Choose `podman-installer-macos-<arch>.pkg`, or the universal build.
+2. Run the `.pkg` installer.
+3. Open a new terminal, then install `podman-compose`:
+
+   ```console
+   uv tool install podman-compose
+   ```
+
+Create the Linux VM and verify the installation:
+
+```console
+podman machine init --now
+podman info
+podman-compose --version
+podman compose version
+```
+
+If Podman was previously installed with Homebrew, remove it first to avoid conflicting executables on `PATH`:
+
+```console
+brew uninstall --ignore-dependencies podman
+brew uninstall krunkit   # If installed separately
+```
+
+### Windows
+
+Install Podman with the Windows installer from the [Podman releases page](https://github.com/containers/podman/releases), then install `podman-compose`:
+
+```powershell
+uv tool install podman-compose
+```
+
+Podman uses a WSL 2-backed machine by default. Initialize it and verify the installation:
+
+```powershell
+podman machine init --now
+podman info
+podman-compose --version
+podman compose version
+```
+
+### Linux
+
+Install Podman and `podman-compose` from the distribution repositories. For example:
+
+```console
+# Debian or Ubuntu
+sudo apt-get update
+sudo apt-get install podman podman-compose
+
+# Fedora
+sudo dnf install podman podman-compose
+```
+
+Linux does not normally require `podman machine`. Verify the installation with `podman --version`, `podman-compose --version`, and `podman compose version`.
+
+### Optional: Podman Desktop
+
+[Podman Desktop](https://podman-desktop.io/) provides a graphical interface for managing containers, images, volumes, and Podman machines. It is optional; all commands in this guide work with the Podman CLI alone.
+
+## How `podman compose` works
+
+`podman compose` (with a space) is a dispatcher included in Podman 4 and later. It delegates Compose operations to an installed provider, such as `docker compose`, `docker-compose`, or `podman-compose`. Docker Desktop and the Docker daemon are not required when `podman-compose` is the provider.
+
+The notice below is informational and identifies the selected provider:
+
+```text
+>>>> Executing external compose provider "/path/to/provider". <<<<
+```
+
+If more than one provider is installed, select one for the current shell with:
 
 ```console
 export PODMAN_COMPOSE_PROVIDER=podman-compose
@@ -40,117 +117,174 @@ export PODMAN_COMPOSE_PROVIDER=podman-compose
 
 ## Configure Podman Machine
 
-GitLab needs more resources than a default development VM. For a new machine:
+Podman Machine applies only to macOS and Windows. To set resources during initial setup, use:
 
 ```console
-podman machine init --cpus 4 --memory 8192 --disk-size 50 --now
-podman info
+podman machine init --cpus 4 --memory 4096 --disk-size 40 --now
 ```
 
-To resize an existing machine:
+Choose values for the workload. The virtual disk stores container images and named volumes, so allow additional space for persistent application data.
+
+To change an existing machine where the selected machine provider supports resource updates, stop it first:
 
 ```console
 podman machine stop
-podman machine set --cpus 4 --memory 8192
+podman machine set --cpus 4 --memory 4096
 podman machine start
 ```
 
-Inspect the active machine and connection:
+CPU, memory, and disk resizing support depends on the machine provider; disk size can only be increased. If the current provider does not support a requested change, recreate the machine with the desired `init` options. Removing a machine deletes its containers, images, and volumes, so back up required data first.
+
+Inspect the machine and connection with:
 
 ```console
 podman machine list
 podman machine inspect
 podman system connection list
+podman info
 ```
 
-Disk size can only be increased. Removing a machine deletes its containers, images, and VM-managed volumes; back up anything important first. Bind-mounted data in this repository should also be backed up separately.
+Start and stop the VM with `podman machine start` and `podman machine stop`.
 
-## Start a Compose project
+## Run a Compose project
 
-From the directory containing `docker-compose.yml`:
+From the directory containing `docker-compose.yml` or `compose.yml`:
 
 ```console
+# macOS and Windows only; skip on Linux
+podman machine start
+
 podman compose config
-podman compose up --detach
-podman compose ps
+podman compose up --build --detach
 ```
 
-Common lifecycle commands:
+Use `podman compose up --build --detach` for the first deployment and after changing the image, dependencies, `Dockerfile`, or Compose configuration. Podman recognizes conventional Compose filenames, so they do not need to be renamed.
+
+To stop and later restart the existing containers without rebuilding them:
 
 ```console
-# Follow all service logs
-podman compose logs --follow
-
-# Stop and restart existing containers
 podman compose stop
 podman compose start
+```
 
-# Remove containers and the Compose network
+## Useful commands
+
+```console
+# Show service status
+podman compose ps
+
+# Follow logs for all services
+podman compose logs --follow
+
+# Follow one service
+podman compose logs --follow <service-name>
+
+# Stop containers while preserving them
+podman compose stop
+
+# Start existing stopped containers
+podman compose start
+
+# Remove containers and the Compose network, preserving named volumes
 podman compose down
 
-# Show all containers and disk usage
+# List containers, including stopped containers
 podman ps --all
+
+# Show Podman disk usage
 podman system df
 ```
 
-Use `podman compose down --volumes` only when you intend to delete Compose-managed volumes. It does not delete this repository's `data/` bind mounts.
+## Update a Compose project
 
-## Understand the runner socket
-
-The runner uses GitLab's Docker executor, which talks to Podman's Docker-compatible API. In `docker-compose.yml`, the socket inside Podman Machine is mounted into the runner at the conventional Docker path:
-
-```yaml
-volumes:
-  - /run/podman/podman.sock:/var/run/docker.sock
-```
-
-Confirm the source socket exists in the default VM (replace the machine name if yours differs):
+Update the project files using their normal source-control or release process, then pull images and recreate changed services:
 
 ```console
-podman machine ssh podman-machine-default test -S /run/podman/podman.sock
+podman compose pull
+podman compose up --build --detach
 ```
 
-Then confirm the mount inside the runner:
+> **Warning:** `podman compose down --volumes` permanently deletes Compose-managed named volumes. Use it only when persistent application data should be removed.
+
+## Docker-compatible socket reference
+
+Normal `podman` and `podman compose` commands do not require manual socket mapping. First check the machine and connection on macOS or Windows:
 
 ```console
-podman exec gitlab-runner test -S /var/run/docker.sock
+podman machine list
+podman system connection list
+podman info
 ```
 
-Do not mount the temporary macOS path reported by `podman machine inspect` into a container. That path exists on macOS, while the container and bind-mount source are resolved inside the Linux VM.
+Docker-compatible socket access is needed only when a host tool is hard-coded to use `/var/run/docker.sock`, or when a trusted container must control other containers.
 
-> [!WARNING]
-> A container with socket access can create containers, modify images and volumes, and mount accessible host paths. Run only trusted CI projects and images.
+> **Security warning:** Socket access grants control over the containers, images, volumes, and host paths available to the Podman engine. Expose or mount it only for trusted tools and containers. Never expose the API over an unauthenticated TCP connection.
 
-## Optional host Docker compatibility
+### macOS
 
-The lab itself does not require a host `/var/run/docker.sock`. Enable it only for macOS applications that insist on that path.
+Podman Machine forwards its API socket to macOS. The forwarded path can change, so do not create a permanent link to the temporary path reported by `podman machine inspect`.
 
-With Podman Desktop, open **Settings > Docker Compatibility** and enable **Third-Party Docker Tool Compatibility**. Verify the mapping with:
+For tools that require `/var/run/docker.sock`, install the Podman helper and restart the machine:
+
+```console
+sudo podman-mac-helper install
+podman machine stop
+podman machine start
+```
+
+Verify it with:
 
 ```console
 ls -l /var/run/docker.sock
 curl --unix-socket /var/run/docker.sock http://localhost/_ping
 ```
 
-The request should return `OK`. Applications that accept `DOCKER_HOST` can instead use the socket shown by `podman system connection list`.
+The `curl` command should return `OK`. If Podman Desktop is installed, the same feature is available under **Settings > Docker Compatibility > Third-Party Docker Tool Compatibility**.
 
-## Troubleshooting
+Applications that honor `DOCKER_HOST` can instead use the default Podman Machine socket directly. Adjust the path for non-default machine names or providers:
 
-### Compose provider is missing
+```console
+export DOCKER_HOST="unix://${HOME}/.local/share/containers/podman/machine/podman.sock"
+```
 
-If `podman compose version` reports that no provider is installed, install `podman-compose` or enable Compose support in Podman Desktop.
+### Linux
 
-### GitLab is slow or returns 502
+Enable the rootless user socket and direct Docker-compatible tools to it:
 
-Check available VM resources with `podman info`, then follow startup with `podman logs --follow gitlab`. Initial startup can take several minutes.
+```console
+systemctl --user enable --now podman.socket
+export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
+```
 
-### Runner cannot create job containers
+For a rootful Podman service, use the system socket:
 
-Run both socket checks above, inspect `podman logs gitlab-runner`, and confirm that the runner configuration uses `unix:///var/run/docker.sock` and the `gitlabnet` network.
+```console
+sudo systemctl enable --now podman.socket
+export DOCKER_HOST="unix:///run/podman/podman.sock"
+```
 
-## References
+Verify either configuration with `podman info` and, if the Docker CLI is installed, `docker info`.
 
-- [Podman installation](https://podman.io/docs/installation)
-- [`podman machine init`](https://docs.podman.io/en/stable/markdown/podman-machine-init.1.html)
-- [`podman compose`](https://docs.podman.io/en/stable/markdown/podman-compose.1.html)
-- [Podman Desktop Docker compatibility](https://podman-desktop.io/docs/migrating-from-docker/managing-docker-compatibility)
+### Windows
+
+Podman Machine exposes its API through a Windows named pipe. With Podman Desktop:
+
+1. Open **Settings > Docker Compatibility**.
+2. Enable Docker compatibility.
+3. Select the Podman machine as the Docker CLI context.
+4. Verify the connection with `podman info` and, if installed, `docker info`.
+
+The conventional Docker-compatible named pipe is `npipe:////./pipe/docker_engine`.
+
+### Give a container access to Podman
+
+A container that must control the engine needs the Podman socket mounted at the path expected by its client. For a rootful engine, a Compose service can use:
+
+```yaml
+volumes:
+  - /run/podman/podman.sock:/var/run/docker.sock
+```
+
+Rootless Podman uses `/run/user/<uid>/podman/podman.sock`. The container process must have permission to read and write the mounted socket.
+
+For more information, see the [`podman compose` documentation](https://docs.podman.io/en/stable/markdown/podman-compose.1.html), [`podman machine set` documentation](https://docs.podman.io/en/stable/markdown/podman-machine-set.1.html), Podman Desktop's [Docker compatibility documentation](https://podman-desktop.io/docs/migrating-from-docker/managing-docker-compatibility), and the [Podman service documentation](https://docs.podman.io/en/latest/markdown/podman-system-service.1.html).
