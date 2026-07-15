@@ -26,8 +26,8 @@ The runner container does not contain Terraform or project dependencies. Those t
 
 `docker-compose.yml` currently uses:
 
-- `yrzr/gitlab-ce-arm64v8:18.9.0-ce.0` and `gitlab/gitlab-runner:v18.9.0` by default on Apple Silicon. The server image is community-maintained, not official.
-- `gitlab/gitlab-ce:19.1.2-ce.0` and `gitlab/gitlab-runner:v19.1.1` through `.env` for a fresh amd64 Ubuntu Server.
+- `docker.io/yrzr/gitlab-ce-arm64v8:18.9.0-ce.0` and `docker.io/gitlab/gitlab-runner:v18.9.0` by default on Apple Silicon. The server image is community-maintained, not official.
+- `docker.io/gitlab/gitlab-ce:19.1.2-ce.0` and `docker.io/gitlab/gitlab-runner:v19.1.1` through `.env` for a fresh amd64 Ubuntu Server.
 - The pinned 18.9 pair on arm64 Ubuntu because the community server image does not currently publish a newer release.
 
 The server and runner stay on the same major and minor release for compatibility. Patch versions can differ. Do not replace these pins with floating `latest` tags; an uncontrolled server upgrade can require intermediate database migrations, while an uncontrolled runner upgrade can create a server/runner mismatch.
@@ -71,9 +71,12 @@ Use the appropriate address for each context:
 | Context | GitLab URL |
 | --- | --- |
 | Browser or host Git client | `GITLAB_EXTERNAL_URL` from `.env`, or `http://localhost:8088` by default |
-| Runner and job containers | `http://gitlab` |
+| Runner and job containers | `http://gitlab-server` |
 
-Inside a container, `localhost` refers to that container. The Compose network resolves the service hostname `gitlab`.
+Inside a container, `localhost` refers to that container. The Compose network
+resolves the dedicated `gitlab-server` alias. This avoids a collision when the
+Ubuntu host itself is named `gitlab` and `/etc/hosts` maps that name to
+`127.0.1.1`.
 
 ## Initial administrator password
 
@@ -93,12 +96,17 @@ Run the registration script and enter the token at its hidden prompt:
 
 ```console
 bash register_runner.sh
-podman exec -it gitlab-runner gitlab-runner list
+podman exec gitlab-runner gitlab-runner verify
 ```
 
 The default fallback job image is the multi-architecture `docker.io/jbarozet/nac-demo:0.2.1`, which contains Terraform 1.15.8. Publish that version before registering a runner. To use a host-native local build instead, set `CUSTOM_IMAGE=nac-demo:latest` when registering. The script configures `if-not-present` so the runner can use a local image. This pull policy is appropriate only for this trusted lab; do not share the instance runner with untrusted projects or users.
 
-The script keeps the token in memory instead of writing it to a tracked file. If a real token is ever committed or shared, rotate it in GitLab; deleting it from the latest file does not remove it from Git history.
+The script keeps the token in memory instead of writing it to a tracked file.
+Do not share `gitlab-runner list` output because it can contain the complete
+authentication token. If a real token is displayed, committed, or shared,
+follow the reset procedure in
+[README_podman.md](../README_podman.md#reset-an-exposed-gitlab-runner-token).
+Deleting a token from the latest file does not remove it from Git history.
 
 ## Container registry
 

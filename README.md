@@ -28,8 +28,8 @@ The repository pins matching server and runner releases instead of using floatin
 
 | Platform | GitLab CE | GitLab Runner |
 | --- | --- | --- |
-| Ubuntu Server amd64 | `gitlab/gitlab-ce:19.1.2-ce.0` | `gitlab/gitlab-runner:v19.1.1` |
-| Apple Silicon or Ubuntu arm64 | `yrzr/gitlab-ce-arm64v8:18.9.0-ce.0` | `gitlab/gitlab-runner:v18.9.0` |
+| Ubuntu Server amd64 | `docker.io/gitlab/gitlab-ce:19.1.2-ce.0` | `docker.io/gitlab/gitlab-runner:v19.1.1` |
+| Apple Silicon or Ubuntu arm64 | `docker.io/yrzr/gitlab-ce-arm64v8:18.9.0-ce.0` | `docker.io/gitlab/gitlab-runner:v18.9.0` |
 
 The arm64 server image is community-maintained and currently stops at GitLab 18.9.0 because the upstream GitLab CE container is not published for arm64. GitLab recommends keeping the server and runner on the same major and minor version; their patch numbers do not have to match.
 
@@ -68,6 +68,10 @@ id -u
 ```
 
 For a fresh amd64 server, uncomment the Ubuntu GitLab and Runner image pair plus the three common settings. On arm64 Ubuntu, use the matched pair shown in the Apple Silicon section instead. Replace `gitlab.example.test` with the server's LAN IP address or resolvable DNS name, and replace `1000` in `PODMAN_SOCKET` if `id -u` prints a different value. Do not add a trailing slash to the URLs.
+
+Keep the `docker.io/` prefix on both image names. Ubuntu Podman installations
+without an unqualified-search registry reject short names such as
+`gitlab/gitlab-ce` before a container is created.
 
 If UFW is active, permit only trusted management networks. For example, replace `192.0.2.0/24` with the actual administrator subnet:
 
@@ -176,11 +180,20 @@ Open the configured `GITLAB_EXTERNAL_URL` (or <http://localhost:8088> on macOS) 
 
    Enter the token at the hidden prompt. The token is never written to the script.
 
+   The script connects through the Compose-only `http://gitlab-server` alias.
+   This remains unambiguous even when the Ubuntu host itself is named `gitlab`.
+   Set `GITLAB_INTERNAL_URL` only when testing an older stack that does not yet
+   have this network alias.
+
 Confirm registration:
 
 ```console
-podman exec -it gitlab-runner gitlab-runner list
+podman exec gitlab-runner gitlab-runner verify
 ```
+
+Do not share `gitlab-runner list` output because it can include the complete
+Runner authentication token. If a token is exposed, follow the reset procedure
+in [README_podman.md](README_podman.md#reset-an-exposed-gitlab-runner-token).
 
 The runner uses the `if-not-present` pull policy so a locally built image is usable. Keep this instance runner restricted to trusted projects; shared runners should use registry-hosted images and a stricter pull policy.
 
@@ -207,6 +220,10 @@ GitLab state is bind-mounted under `data/`, so `podman compose down` does not re
 
 ## Upgrade an existing installation
 
+For an existing arm64 instance running GitLab 18.9.x, use the backup, pinning,
+validation, and migration runbook in
+[Maintaining a GitLab 18.9.x arm64 Instance](docs/README_gitlab_18_9_arm64.md).
+
 Never point existing GitLab data at an arbitrary newer image. Back up `data/`, identify the installed version, and follow GitLab's required upgrade stops. Check the current versions with:
 
 ```console
@@ -220,7 +237,7 @@ An existing amd64 installation on GitLab 18.9 must stop at the latest GitLab 18.
 18.9.x → 18.11.7 → 19.1.2
 ```
 
-At the 18.11 stop, use `gitlab/gitlab-ce:18.11.7-ce.0` with `gitlab/gitlab-runner:v18.11.4`. Start GitLab, verify it, and wait for all background migrations to finish before changing `.env` to the pinned 19.1 images.
+At the 18.11 stop, use `docker.io/gitlab/gitlab-ce:18.11.7-ce.0` with `docker.io/gitlab/gitlab-runner:v18.11.4`. Start GitLab, verify it, and wait for all background migrations to finish before changing `.env` to the pinned 19.1 images.
 
 The community arm64 image does not provide the required 18.11 stop. Existing Apple Silicon data must remain on the matched 18.9 pair or be migrated to an official amd64 GitLab 18.9.0 installation before following the upgrade path. Fresh Ubuntu amd64 installations can start directly on the versions in `.env.example`.
 

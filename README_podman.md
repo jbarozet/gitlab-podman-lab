@@ -12,6 +12,7 @@ This reusable guide covers installing Podman, configuring Podman Machine, runnin
 - [Run a Compose project](#run-a-compose-project)
 - [Useful commands](#useful-commands)
 - [Update a Compose project](#update-a-compose-project)
+- [Reset an exposed GitLab Runner token](#reset-an-exposed-gitlab-runner-token)
 - [Docker-compatible socket reference](#docker-compatible-socket-reference)
 
 ## Overview
@@ -213,6 +214,32 @@ podman compose up --build --detach
 ```
 
 > **Warning:** `podman compose down --volumes` permanently deletes Compose-managed named volumes. Use it only when persistent application data should be removed.
+
+## Reset an exposed GitLab Runner token
+
+This repository stores the GitLab Runner configuration in the
+`gitlab-runner` container's mounted configuration directory. If its `glrt-...`
+authentication token is displayed, pasted into a message, committed, or
+otherwise exposed, reset it from the container:
+
+```console
+podman exec gitlab-runner \
+  gitlab-runner reset-token --name "Podman Runner"
+```
+
+The command uses the current token to request a replacement from GitLab and
+updates the local `config.toml`. Do not share its output. Verify the replacement
+without displaying the token:
+
+```console
+podman exec gitlab-runner gitlab-runner verify
+```
+
+Avoid sharing the output of `gitlab-runner list`; current Runner releases can
+include the complete authentication token. If resetting fails, delete the
+Runner in the GitLab UI, create a replacement, and register it with the new
+token. See GitLab's
+[authentication token security guidance](https://docs.gitlab.com/ci/runners/configure_runners/#authentication-token-security).
 
 ## Docker-compatible socket reference
 

@@ -5,13 +5,15 @@ networks:
 
 services:
   gitlab:
-    image: ${GITLAB_IMAGE:-yrzr/gitlab-ce-arm64v8:18.9.0-ce.0}
+    image: ${GITLAB_IMAGE:-docker.io/yrzr/gitlab-ce-arm64v8:18.9.0-ce.0}
     container_name: gitlab
     restart: unless-stopped
     hostname: gitlab
     shm_size: 256m
     networks:
-      - gitlabnet
+      gitlabnet:
+        aliases:
+          - gitlab-server
     ports:
       - "8088:80"
       - '5005:5005'
@@ -31,7 +33,7 @@ services:
       - ./data/gitlab/data:/var/opt/gitlab:Z
 
   gitlab-runner:
-    image: ${GITLAB_RUNNER_IMAGE:-gitlab/gitlab-runner:v18.9.0}
+    image: ${GITLAB_RUNNER_IMAGE:-docker.io/gitlab/gitlab-runner:v18.9.0}
     container_name: gitlab-runner
     restart: unless-stopped
     networks:
