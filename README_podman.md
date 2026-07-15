@@ -208,7 +208,7 @@ podman compose up --build --detach
 
 ## Docker-compatible socket reference
 
-Normal `podman` and `podman compose` commands do not require manual socket mapping. First check the machine and connection on macOS or Windows:
+The Podman CLI does not require a conventional Docker socket. External Compose providers and other Docker-compatible tools may require one, depending on how they are invoked. First check the machine and connection on macOS or Windows:
 
 ```console
 podman machine list

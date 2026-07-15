@@ -18,6 +18,7 @@ The default CI job image is configured in `register_runner.sh`. A project can ov
 
 - macOS on Apple Silicon (`arm64`)
 - Podman and a Compose provider
+- `podman-mac-helper` configured for Docker-compatible socket access
 - At least 4 CPUs and 8 GB RAM assigned to Podman Machine
 - Internet access for the initial image downloads
 
@@ -27,7 +28,17 @@ Follow [README_podman.md](README_podman.md) to install and configure Podman.
 
 ## Quick start
 
-### 1. Prepare Podman Machine
+### 1. Install the macOS socket helper
+
+This lab requires Docker-compatible socket access for the external Compose provider and the GitLab Runner Docker executor. Install `podman-mac-helper` once, before starting Podman Machine:
+
+```console
+sudo podman-mac-helper install
+```
+
+The compatibility socket becomes active when Podman Machine starts in the next step.
+
+### 2. Prepare Podman Machine
 
 For a new machine:
 
@@ -47,7 +58,22 @@ podman machine start
 
 Changing between rootless and rootful connections uses different Podman storage. Do not switch a working machine unless you intend to recreate its containers and images.
 
-### 2. Start the lab
+Verify the macOS compatibility socket and the socket inside Podman Machine after it starts:
+
+```console
+ls -l /var/run/docker.sock
+curl --unix-socket /var/run/docker.sock http://localhost/_ping
+podman machine ssh podman-machine-default test -S /run/podman/podman.sock
+```
+
+The `curl` command should return `OK`. The Compose configuration mounts the in-machine socket into the runner as `/var/run/docker.sock`.
+
+> [!WARNING]
+> Socket access gives the runner broad control over the Podman engine. Run only trusted CI projects and images.
+
+See [Podman Desktop Docker compatibility](https://podman-desktop.io/docs/migrating-from-docker/managing-docker-compatibility) for the equivalent graphical setup and troubleshooting.
+
+### 3. Start the lab
 
 From the repository root:
 
@@ -66,7 +92,7 @@ Verify that the runner container can access Podman's API socket:
 podman exec gitlab-runner test -S /var/run/docker.sock
 ```
 
-### 3. Sign in to GitLab
+### 4. Sign in to GitLab
 
 Read the generated initial password:
 
@@ -76,7 +102,7 @@ podman exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
 
 Open <http://localhost:8088> and sign in as `root`. Change the password immediately. GitLab removes the initial-password file after the first container restart that occurs more than 24 hours after installation.
 
-### 4. Register the runner
+### 5. Register the runner
 
 1. In GitLab, open **Admin > CI/CD > Runners**.
 2. Select **Create instance runner**.
