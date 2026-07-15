@@ -10,10 +10,10 @@ This project verifies the complete local CI path:
 
 ## Create the GitLab project
 
-Open <http://localhost:8088>, sign in, and select **New project > Create blank project**.
+Open the configured GitLab URL (`GITLAB_EXTERNAL_URL` in `.env`, or <http://localhost:8088> by default), sign in, and select **New project > Create blank project**.
 
 - **Project name:** `smoke-test`
-- **Project URL:** `http://localhost:8088/root/smoke-test`
+- **Project URL:** `http://gitlab.example.test:8088/root/smoke-test` (replace the host with the configured server)
 - **Visibility:** Public, for this isolated lab only
 - **Initialize repository with a README:** Disabled
 
@@ -28,9 +28,11 @@ git init
 git branch -M main
 git add .
 git commit -m "Add GitLab smoke test"
-git remote add origin http://localhost:8088/root/smoke-test.git
+git remote add origin http://gitlab.example.test:8088/root/smoke-test.git
 git push --set-upstream origin main
 ```
+
+Replace `gitlab.example.test` with the host configured in `.env`. On macOS, use `localhost`.
 
 The copy includes `.gitlab-ci.yml`, which is hidden by default in directory listings.
 
@@ -53,4 +55,4 @@ podman logs gitlab-runner
 podman exec gitlab-runner test -S /var/run/docker.sock
 ```
 
-If `python` or `terraform` is missing, publish the image built in [custom-image](../custom-image/README.md) and register the runner with `CUSTOM_IMAGE="<published-image>" bash register_runner.sh`.
+If `python` or `terraform` is missing, build the [custom image](../custom-image/README.md) on the GitLab host and register the runner again with `CUSTOM_IMAGE=nac-demo:latest bash register_runner.sh`. A registry-hosted image is preferable if the runner is not restricted to this trusted lab.

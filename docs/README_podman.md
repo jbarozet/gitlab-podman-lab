@@ -72,9 +72,11 @@ cd custom-image
 podman run --rm nac-demo:latest terraform --version
 ```
 
-The supplied `Containerfile` is arm64-specific because it downloads the Linux arm64 Terraform package.
+The build script selects the Linux arm64 or amd64 Terraform package to match the host. Use `ARCH_OVERRIDE` for cross-platform builds; see the custom-image guide.
 
-## Socket model on macOS
+## Socket model
+
+### macOS
 
 Podman exposes different paths in different environments:
 
@@ -91,6 +93,21 @@ podman exec gitlab-runner test -S /var/run/docker.sock
 
 Do not bind-mount a `/var/folders/...` macOS socket path into a Linux container. Enable Podman Desktop's Docker compatibility only when a host application needs `/var/run/docker.sock`; it is not required by the current Compose mount.
 
+### Ubuntu Server
+
+Rootless Podman exposes `/run/user/<uid>/podman/podman.sock` on the Linux host. Put the concrete path in `.env`; Compose mounts it at the Docker-compatible location expected by the runner:
+
+```dotenv
+PODMAN_SOCKET=/run/user/1000/podman/podman.sock
+```
+
+Verify both ends:
+
+```console
+test -S "/run/user/$(id -u)/podman/podman.sock"
+podman exec gitlab-runner test -S /var/run/docker.sock
+```
+
 ## Common failures
 
 ### `podman compose` cannot find a provider
@@ -103,11 +120,11 @@ Inspect it with `podman ps --all`. If it belongs to this project, prefer `podman
 
 ### Runner cannot pull an image
 
-Confirm the image name, registry authentication, and availability of a `linux/arm64` manifest. Check `podman logs gitlab-runner` for the exact pull error.
+Confirm the image name, registry authentication, and availability of a manifest for the host (`linux/arm64` or `linux/amd64`). Check `podman logs gitlab-runner` for the exact pull error.
 
 ### GitLab is slow
 
-Confirm that Podman Machine has at least 4 CPUs and 8 GB RAM. Follow the GitLab logs during initialization.
+GitLab's normal single-node baseline is 8 vCPU and 16 GB RAM. This lab can run in a constrained 4 CPU and 8 GB configuration, but startup and responses can be slow. Follow the GitLab logs during initialization and use SSD-backed storage.
 
 ## Security
 

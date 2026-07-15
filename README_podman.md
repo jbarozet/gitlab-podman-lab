@@ -80,20 +80,28 @@ podman-compose --version
 podman compose version
 ```
 
-### Linux
+### Linux and Ubuntu Server
 
 Install Podman and `podman-compose` from the distribution repositories. For example:
 
 ```console
 # Debian or Ubuntu
 sudo apt-get update
-sudo apt-get install podman podman-compose
+sudo apt-get install podman podman-compose uidmap
 
 # Fedora
 sudo dnf install podman podman-compose
 ```
 
-Linux does not normally require `podman machine`. Verify the installation with `podman --version`, `podman-compose --version`, and `podman compose version`.
+Linux does not normally require `podman machine`. For a rootless service on Ubuntu Server, enable the per-user API socket and keep it running after logout:
+
+```console
+systemctl --user enable --now podman.socket
+sudo loginctl enable-linger "$USER"
+test -S "/run/user/$(id -u)/podman/podman.sock"
+```
+
+Run rootless Podman as the same regular user each time; mixing `podman` and `sudo podman` uses separate storage. Verify the installation with `podman --version`, `podman-compose --version`, and `podman compose version`.
 
 ### Optional: Podman Desktop
 
@@ -265,6 +273,12 @@ export DOCKER_HOST="unix:///run/podman/podman.sock"
 
 Verify either configuration with `podman info` and, if the Docker CLI is installed, `docker info`.
 
+For this repository, set `PODMAN_SOCKET` in `.env` to the host-side socket path. A rootless Ubuntu user with UID `1000`, for example, uses:
+
+```dotenv
+PODMAN_SOCKET=/run/user/1000/podman/podman.sock
+```
+
 ### Windows
 
 Podman Machine exposes its API through a Windows named pipe. With Podman Desktop:
@@ -285,6 +299,6 @@ volumes:
   - /run/podman/podman.sock:/var/run/docker.sock
 ```
 
-Rootless Podman uses `/run/user/<uid>/podman/podman.sock`. The container process must have permission to read and write the mounted socket.
+Rootless Podman uses `/run/user/<uid>/podman/podman.sock`. The container process must have permission to read and write the mounted socket. This repository maps the configurable `PODMAN_SOCKET` source to `/var/run/docker.sock` inside the runner.
 
 For more information, see the [`podman compose` documentation](https://docs.podman.io/en/stable/markdown/podman-compose.1.html), [`podman machine set` documentation](https://docs.podman.io/en/stable/markdown/podman-machine-set.1.html), Podman Desktop's [Docker compatibility documentation](https://podman-desktop.io/docs/migrating-from-docker/managing-docker-compatibility), and the [Podman service documentation](https://docs.podman.io/en/latest/markdown/podman-system-service.1.html).

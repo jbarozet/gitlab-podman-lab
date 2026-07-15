@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`docker-compose.yml` defines the GitLab server, runner, network, ports, and persistent state. `register_runner.sh` registers the runner. `custom-image/` is a self-contained side project that builds the arm64 Linux image used for GitLab CI jobs; its `Containerfile`, `build.sh`, and `README.md` define that workflow. `smoke-test/` is the end-to-end validation project, and setup references are in `docs/`. Runtime state below `data/` is not source code.
+`docker-compose.yml` defines the GitLab server, runner, network, ports, platform-specific image, socket, and persistent state. `register_runner.sh` registers the runner. `custom-image/` is a self-contained side project that builds the arm64 or amd64 Linux image used for GitLab CI jobs; `publish_dockerhub.sh` publishes both variants as one multi-architecture Docker Hub image. `smoke-test/` is the end-to-end validation project, and setup references are in `docs/`. Runtime state below `data/` is not source code.
 
 ## Build, Test, and Development Commands
 
@@ -11,6 +11,7 @@
 - `podman compose ps` checks service health; `podman logs --follow gitlab` follows startup.
 - `bash register_runner.sh` securely prompts for a runner token and registers the runner.
 - `cd custom-image && ./build.sh` builds the runner's `nac-demo` Linux image locally.
+- `cd custom-image && VERSION=0.2.1 ./publish_dockerhub.sh` builds, tests, and publishes both supported architectures.
 - `podman compose stop` preserves containers and data; `podman compose down` removes containers and the Compose network.
 
 ## Coding Style & Naming Conventions
@@ -23,8 +24,8 @@ There is no automated test framework or coverage target. Run `podman compose con
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses short, imperative, lowercase subjects such as `update runner container build`. Follow that pattern and keep commits focused. Pull requests should explain the motivation, list validation, identify macOS/Podman assumptions, and link related issues. Include screenshots only for UI changes. Call out changes affecting `data/`, ports, image tags, or runner registration.
+Recent history uses short, imperative, lowercase subjects such as `update runner container build`. Follow that pattern and keep commits focused. Pull requests should explain the motivation, list validation, identify macOS, Ubuntu, and Podman assumptions, and link related issues. Include screenshots only for UI changes. Call out changes affecting `data/`, ports, image tags, socket paths, or runner registration.
 
 ## Security & Configuration Tips
 
-This lab is demonstration-only and optimized for Apple Silicon. Never commit runner tokens, passwords, generated GitLab configuration, or files below `data/`. Let `register_runner.sh` prompt for the token, or inject `REG_TOKEN` only through the local environment for unattended use. Treat the mounted Podman socket as privileged access: run only trusted CI jobs and runner images. Avoid `podman compose down --volumes` unless data deletion is intentional.
+This lab is demonstration-only and supports Apple Silicon macOS and amd64 or arm64 Ubuntu Server. Never commit runner tokens, passwords, generated GitLab configuration, or files below `data/`. Let `register_runner.sh` prompt for the token, or inject `REG_TOKEN` only through the local environment for unattended use. Treat the mounted Podman socket as privileged access: run only trusted CI jobs and runner images. Avoid `podman compose down --volumes` unless data deletion is intentional.

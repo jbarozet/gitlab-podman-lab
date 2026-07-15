@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-CUSTOM_IMAGE="${CUSTOM_IMAGE:-jbarozet/nac-demo:0.1.0}"
-RUNNER_NAME="${RUNNER_NAME:-Podman Mac Runner}"
+CUSTOM_IMAGE="${CUSTOM_IMAGE:-docker.io/jbarozet/nac-demo:0.2.1}"
+RUNNER_NAME="${RUNNER_NAME:-Podman Runner}"
 
 if [[ -z "${REG_TOKEN:-}" ]]; then
   if [[ ! -t 0 ]]; then
@@ -29,6 +29,7 @@ podman exec -i gitlab-runner gitlab-runner register \
   --token "$REG_TOKEN" \
   --executor "docker" \
   --docker-image "$CUSTOM_IMAGE" \
+  --docker-pull-policy "if-not-present" \
   --description "$RUNNER_NAME" \
   --clone-url "http://gitlab" \
   --docker-host "unix:///var/run/docker.sock" \
