@@ -1,6 +1,8 @@
 # GitLab Runner Job Image
 
-This side project builds the Linux image used by the GitLab Runner's Docker executor. Each CI job runs in a fresh container; it does not run inside the runner container itself.
+This side project builds the Linux image used by the GitLab Runner Docker
+executor. Each CI job runs in a fresh container, separate from the macOS Runner
+container or the native Ubuntu Runner service.
 
 The image is based on `python:3.12-slim` and includes:
 
@@ -227,14 +229,29 @@ validate:
     - nac-validate --help
 ```
 
-This value overrides the default image configured by `register_runner.sh`. From the repository root, register either architecture with the same multi-architecture fallback image:
+This value overrides the default image configured by the platform registration
+script. From the repository root, register either architecture with the same
+multi-architecture fallback image.
+
+On macOS:
 
 ```console
 CUSTOM_IMAGE=docker.io/YOUR_DOCKERHUB_USERNAME/nac-demo:0.2.1 \
-bash register_runner.sh
+bash scripts/register_runner_macos.sh
 ```
 
-For this trusted local lab, the registration script uses the `if-not-present` pull policy. You can therefore build on the GitLab host and register `CUSTOM_IMAGE=nac-demo:latest` without publishing it. Do not use that pull policy on a runner shared by mutually untrusted users or projects.
+On native Ubuntu:
+
+```console
+GITLAB_URL=http://gitlab.example.test \
+CUSTOM_IMAGE=docker.io/YOUR_DOCKERHUB_USERNAME/nac-demo:0.2.1 \
+bash scripts/register_runner_ubuntu.sh
+```
+
+For this trusted local lab, the registration scripts use the `if-not-present`
+pull policy. A registry-hosted image is recommended on Ubuntu because rootless
+images belong to the dedicated `gitlab-runner` account. Do not use this pull
+policy on a runner shared by mutually untrusted users or projects.
 
 ## Architecture notes
 

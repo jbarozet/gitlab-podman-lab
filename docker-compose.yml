@@ -1,3 +1,5 @@
+# Apple Silicon macOS container stack. Ubuntu uses native packages; see
+# README_ubuntu.md.
 networks:
   gitlabnet:
     driver: bridge

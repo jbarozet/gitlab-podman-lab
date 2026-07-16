@@ -35,5 +35,4 @@ podman exec -i gitlab-runner gitlab-runner register \
   --clone-url "$GITLAB_INTERNAL_URL" \
   --docker-host "unix:///var/run/docker.sock" \
   --docker-network-mode "gitlabnet" \
-  --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
   --docker-volumes "/cache"

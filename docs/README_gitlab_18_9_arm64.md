@@ -1,9 +1,9 @@
 # Maintaining a GitLab 18.9.x arm64 Instance
 
-This runbook applies to an existing Podman lab running GitLab CE 18.9.x on an
-arm64 host, including Apple Silicon macOS and arm64 Ubuntu Server. It documents
-the safe path for inspecting, pinning, backing up, and eventually migrating the
-instance to an amd64 Ubuntu Server. It does not apply to a fresh deployment.
+This runbook applies to an existing Podman lab running GitLab CE 18.9.x on
+Apple Silicon macOS. It documents the safe path for inspecting, pinning,
+backing up, and eventually migrating the instance to a native Ubuntu Server
+installation. It does not apply to a fresh deployment.
 
 The examples use the repository default, GitLab CE and Runner 18.9.0. If an
 instance reports another 18.9 patch release, use its exact version everywhere a
@@ -195,44 +195,50 @@ untrusted networks and do not expose it directly to the Internet.
 
 ## Migration and upgrade path
 
-Use a real amd64 Ubuntu Server as the route to current official GitLab images:
+Use native GitLab Linux packages on Ubuntu Server as the route to a current,
+officially supported installation:
 
 ```text
-arm64 community GitLab CE 18.9.x
+macOS arm64 community GitLab CE container 18.9.x
                   ↓ backup and restore
-Ubuntu amd64 official GitLab CE at the same exact 18.9.x patch
-                  ↓ validate and upgrade
-Ubuntu amd64 official GitLab CE 18.11.7
+Native Ubuntu GitLab CE package at the same exact 18.9.x patch
+                  ↓ validate and upgrade package
+Native Ubuntu GitLab CE package 18.11.7
                   ↓ finish all background migrations
-Ubuntu amd64 official GitLab CE 19.1.2
+Native Ubuntu GitLab CE package 19.1.2
 ```
 
 ### 1. Restore onto the same version
 
 The initial Ubuntu target must use the same edition and exact patch version as
-the backup. For the repository default, use:
+the backup. For the repository default, install:
 
-```dotenv
-GITLAB_IMAGE=docker.io/gitlab/gitlab-ce:18.9.0-ce.0
-GITLAB_RUNNER_IMAGE=docker.io/gitlab/gitlab-runner:v18.9.0
+```console
+sudo EXTERNAL_URL="http://gitlab.example.test" \
+  apt-get install gitlab-ce=18.9.0-ce.0
+sudo apt-get install \
+  gitlab-runner=18.9.0-1 \
+  gitlab-runner-helper-images=18.9.0-1
 ```
 
-If the source runs a different 18.9 patch, replace both tags with that exact
-version. Transfer the GitLab backup and `gitlab-secrets.json` securely. Restore
-into a fresh official amd64 GitLab CE installation at the matching version,
-then repeat every validation check above. Re-register the Runner if necessary.
+If the source runs a different 18.9 patch, install that exact GitLab CE package.
+Transfer the GitLab backup and `gitlab-secrets.json` securely. Restore into the
+matching native package installation, then repeat every validation check above.
+Configure the native Runner by following
+[README_ubuntu.md](../README_ubuntu.md#3-install-the-pinned-native-runner-and-podman)
+and re-register it.
 
 ### 2. Upgrade one stop at a time
 
 After the restored 18.9.x instance passes validation:
 
 1. Back up the Ubuntu instance.
-2. Change the GitLab and Runner image pair to the documented 18.11 versions.
-3. Pull and recreate the containers.
+2. Upgrade GitLab CE and Runner to the documented 18.11 package versions.
+3. Run `sudo gitlab-ctl reconfigure` and verify the native services.
 4. Allow the PostgreSQL upgrade and GitLab migrations to finish without interruption.
 5. Run all health, secrets, migration, UI, repository, registry, and CI checks.
 6. Create another backup.
-7. Change to the documented 19.1 image pair and repeat the process.
+7. Upgrade to the documented 19.1 package pair and repeat the process.
 
 Never move to the next stop while any background migration is active, paused,
 or failed. Review the GitLab upgrade notes again immediately before performing
@@ -240,8 +246,9 @@ the migration because available patch releases and known issues can change.
 
 ## Rollback guidance
 
-Do not attempt to roll back by pointing upgraded data at an older image. GitLab
-database changes are not generally reversible that way.
+Do not attempt to roll back by pointing upgraded data at an older container
+image or package installation. GitLab database changes are not generally
+reversible that way.
 
 If pinning the arm64 containers fails before any version change, stop the stack,
 restore the cold `data/` archive, and recreate containers at the exact original
@@ -257,6 +264,7 @@ volume commands are inappropriate during backup, migration, or recovery.
 - [Plan a GitLab upgrade path](https://docs.gitlab.com/update/upgrade_paths/)
 - [Plan and validate an upgrade](https://docs.gitlab.com/update/plan_your_upgrade/)
 - [Upgrade a Docker-based instance](https://docs.gitlab.com/update/docker/)
+- [Upgrade a Linux package instance](https://docs.gitlab.com/update/package/)
 - [Back up GitLab in a container](https://docs.gitlab.com/install/docker/backup/)
 - [Restore GitLab](https://docs.gitlab.com/administration/backup_restore/restore_gitlab/)
 - [Check background migrations](https://docs.gitlab.com/update/background_migrations/)
